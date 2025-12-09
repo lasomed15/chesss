@@ -1,102 +1,267 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chess Game</title>
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-family: sans-serif;
-      background-color: #eee;
-    }
-
-    h1 {
-      margin-top: 20px;
-    }
-
-    #chessboard {
-      display: grid;
-      grid-template-columns: repeat(8, 60px);
-      grid-template-rows: repeat(8, 60px);
-      gap: 0;
-      margin-top: 20px;
-      border: 2px solid #333;
-    }
-
-    .square {
-      width: 60px;
-      height: 60px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 36px;
-      cursor: pointer;
-    }
-
-    .square.black { background-color: #769656; }
-    .square.white { background-color: #eeeed2; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess Game with Rules</title>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: sans-serif;
+    background-color: #eee;
+  }
+  h1 { margin-top: 20px; }
+  #chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    border: 2px solid #333;
+    margin-top: 20px;
+  }
+  .square {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 36px;
+    cursor: pointer;
+  }
+  .square.black { background-color: #769656; }
+  .square.white { background-color: #eeeed2; }
+  .selected { border: 3px solid red !important; }
+</style>
 </head>
 <body>
-  <h1>Chess Game</h1>
-  <div id="chessboard"></div>
+<h1>Chess Game</h1>
+<div id="chessboard"></div>
+<p id="status"></p>
 
-  <script>
-    const chessboard = document.getElementById('chessboard');
+<script>
+const chessboard = document.getElementById('chessboard');
+const status = document.getElementById('status');
 
-    // Initial board setup
-    let board = [
-      ['♜','♞','♝','♛','♚','♝','♞','♜'],
-      ['♟','♟','♟','♟','♟','♟','♟','♟'],
-      ['','','','','','','',''],
-      ['','','','','','','',''],
-      ['','','','','','','',''],
-      ['','','','','','','',''],
-      ['♙','♙','♙','♙','♙','♙','♙','♙'],
-      ['♖','♘','♗','♕','♔','♗','♘','♖']
-    ];
+let board = [
+  ['♜','♞','♝','♛','♚','♝','♞','♜'],
+  ['♟','♟','♟','♟','♟','♟','♟','♟'],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['♙','♙','♙','♙','♙','♙','♙','♙'],
+  ['♖','♘','♗','♕','♔','♗','♘','♖']
+];
 
-    function drawBoard() {
-      chessboard.innerHTML = '';
-      for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-          const square = document.createElement('div');
-          square.classList.add('square');
-          square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
-          square.dataset.row = row;
-          square.dataset.col = col;
-          square.textContent = board[row][col];
-          chessboard.appendChild(square);
+let turn = 'white';
+let selected = null;
+
+// Utility functions
+function isWhite(piece) { return ['♙','♖','♘','♗','♕','♔'].includes(piece); }
+function isBlack(piece) { return ['♟','♜','♞','♝','♛','♚'].includes(piece); }
+function isEmpty(row, col) { return board[row][col] === ''; }
+function inBounds(row, col) { return row >= 0 && row < 8 && col >= 0 && col < 8; }
+
+function drawBoard(highlightSquares=[]) {
+  chessboard.innerHTML = '';
+  for(let row=0; row<8; row++) {
+    for(let col=0; col<8; col++) {
+      const square = document.createElement('div');
+      square.classList.add('square', (row+col)%2===0?'white':'black');
+      square.dataset.row = row;
+      square.dataset.col = col;
+      square.textContent = board[row][col];
+
+      if(selected && selected.row === row && selected.col === col) square.classList.add('selected');
+
+      // Highlight possible moves
+      if(highlightSquares.some(sq => sq.row===row && sq.col===col)) {
+        square.style.border = '3px solid yellow';
+      }
+
+      chessboard.appendChild(square);
+    }
+  }
+  status.textContent = `${turn.charAt(0).toUpperCase()+turn.slice(1)}'s turn`;
+}
+
+// Movement rules for each piece
+function getLegalMoves(row, col) {
+  const piece = board[row][col];
+  const moves = [];
+  if(piece === '') return moves;
+  const color = isWhite(piece)?'white':'black';
+  const enemy = color==='white'?isBlack:isWhite;
+
+  // Pawn
+  if(piece==='♙') {
+    if(inBounds(row-1,col) && isEmpty(row-1,col)) moves.push({row: row-1, col});
+    if(row===6 && isEmpty(row-1,col) && isEmpty(row-2,col)) moves.push({row: row-2, col});
+    if(inBounds(row-1,col-1) && enemy(board[row-1][col-1])) moves.push({row: row-1, col: col-1});
+    if(inBounds(row-1,col+1) && enemy(board[row-1][col+1])) moves.push({row: row-1, col: col+1});
+  }
+  if(piece==='♟') {
+    if(inBounds(row+1,col) && isEmpty(row+1,col)) moves.push({row: row+1, col});
+    if(row===1 && isEmpty(row+1,col) && isEmpty(row+2,col)) moves.push({row: row+2, col});
+    if(inBounds(row+1,col-1) && enemy(board[row+1][col-1])) moves.push({row: row+1, col: col-1});
+    if(inBounds(row+1,col+1) && enemy(board[row+1][col+1])) moves.push({row: row+1, col: col+1});
+  }
+
+  // Knight
+  if(piece==='♘' || piece==='♞') {
+    const deltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+    deltas.forEach(d => {
+      const r=row+d[0], c=col+d[1];
+      if(inBounds(r,c) && (!board[r][c] || enemy(board[r][c]))) moves.push({row:r,col:c});
+    });
+  }
+
+  // Rook
+  if(piece==='♖' || piece==='♜') {
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    dirs.forEach(d=>{
+      let r=row+d[0], c=col+d[1];
+      while(inBounds(r,c) && (isEmpty(r,c) || enemy(board[r][c]))) {
+        moves.push({row:r,col:c});
+        if(!isEmpty(r,c)) break;
+        r+=d[0]; c+=d[1];
+      }
+    });
+  }
+
+  // Bishop
+  if(piece==='♗' || piece==='♝') {
+    const dirs=[[1,1],[1,-1],[-1,1],[-1,-1]];
+    dirs.forEach(d=>{
+      let r=row+d[0], c=col+d[1];
+      while(inBounds(r,c) && (isEmpty(r,c) || enemy(board[r][c]))) {
+        moves.push({row:r,col:c});
+        if(!isEmpty(r,c)) break;
+        r+=d[0]; c+=d[1];
+      }
+    });
+  }
+
+  // Queen
+  if(piece==='♕' || piece==='♛') {
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    dirs.forEach(d=>{
+      let r=row+d[0], c=col+d[1];
+      while(inBounds(r,c) && (isEmpty(r,c) || enemy(board[r][c]))) {
+        moves.push({row:r,col:c});
+        if(!isEmpty(r,c)) break;
+        r+=d[0]; c+=d[1];
+      }
+    });
+  }
+
+  // King
+  if(piece==='♔' || piece==='♚') {
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    dirs.forEach(d=>{
+      const r=row+d[0], c=col+d[1];
+      if(inBounds(r,c) && (!board[r][c] || enemy(board[r][c]))) moves.push({row:r,col:c});
+    });
+  }
+
+  return moves;
+}
+
+// Detect check
+function inCheck(color) {
+  let kingPos;
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      if((color==='white' && board[r][c]==='♔') || (color==='black' && board[r][c]==='♚')){
+        kingPos={row:r,col:c};
+        break;
+      }
+    }
+  }
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const piece=board[r][c];
+      if(piece && ((color==='white' && isBlack(piece)) || (color==='black' && isWhite(piece)))) {
+        const moves=getLegalMoves(r,c);
+        if(moves.some(m=>m.row===kingPos.row && m.col===kingPos.col)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Detect checkmate (no legal moves to escape check)
+function checkMate(color) {
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const piece=board[r][c];
+      if(piece && ((color==='white' && isWhite(piece)) || (color==='black' && isBlack(piece)))) {
+        const moves=getLegalMoves(r,c);
+        for(const m of moves){
+          const backup=board[m.row][m.col];
+          board[m.row][m.col]=piece;
+          board[r][c]='';
+          if(!inCheck(color)){
+            board[r][c]=piece;
+            board[m.row][m.col]=backup;
+            return false;
+          }
+          board[r][c]=piece;
+          board[m.row][m.col]=backup;
         }
       }
     }
+  }
+  return true;
+}
 
-    drawBoard();
+// Click handling
+chessboard.addEventListener('click', (e)=>{
+  const square = e.target;
+  if(!square.classList.contains('square')) return;
+  const row=parseInt(square.dataset.row);
+  const col=parseInt(square.dataset.col);
+  const piece=board[row][col];
 
-    let selected = null;
+  if(!selected){
+    if(piece && ((turn==='white' && isWhite(piece)) || (turn==='black' && isBlack(piece)))){
+      selected={row,col};
+      drawBoard(getLegalMoves(row,col));
+    }
+  } else {
+    const moves=getLegalMoves(selected.row,selected.col);
+    if(moves.some(m=>m.row===row && m.col===col)){
+      const movingPiece=board[selected.row][selected.col];
+      board[row][col]=movingPiece;
+      board[selected.row][selected.col]='';
 
-    chessboard.addEventListener('click', (e) => {
-      const square = e.target;
-      const row = parseInt(square.dataset.row);
-      const col = parseInt(square.dataset.col);
+      // Promotion for pawns
+      if(movingPiece==='♙' && row===0) board[row][col]='♕';
+      if(movingPiece==='♟' && row===7) board[row][col]='♛';
 
-      if (!square.classList.contains('square')) return;
-
-      if (!selected) {
-        if (board[row][col] !== '') {
-          selected = { row, col };
-          square.style.border = '2px solid red';
+      // Check check/checkmate
+      const enemy = turn==='white'?'black':'white';
+      if(inCheck(enemy)){
+        if(checkMate(enemy)){
+          alert(`Checkmate! ${turn.charAt(0).toUpperCase()+turn.slice(1)} wins!`);
+        } else {
+          alert(`${enemy.charAt(0).toUpperCase()+enemy.slice(1)} is in check!`);
         }
-      } else {
-        board[row][col] = board[selected.row][selected.col];
-        board[selected.row][selected.col] = '';
-        selected = null;
-        drawBoard();
       }
-    });
-  </script>
+
+      turn = enemy;
+      selected=null;
+      drawBoard();
+    } else {
+      // clicked invalid square, deselect
+      selected=null;
+      drawBoard();
+    }
+  }
+});
+
+drawBoard();
+</script>
 </body>
 </html>
